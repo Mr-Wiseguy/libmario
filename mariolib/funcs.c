@@ -679,16 +679,50 @@ EXPORT void ADDCALL getMarioPosition(Vec3f pos) {
     pos[2] = gMarioObject->header.gfx.pos[2];
 }
 
+EXPORT void ADDCALL setMarioPosition(Vec3f pos) {
+    gMarioState->pos[0] = pos[0];
+    gMarioState->pos[1] = pos[1];
+    gMarioState->pos[2] = pos[2];
+}
+
 EXPORT void ADDCALL getMarioVelocity(Vec3f vel) {
     vel[0] = gMarioState->vel[0];
     vel[1] = gMarioState->vel[1];
     vel[2] = gMarioState->vel[2];
 }
 
+EXPORT void ADDCALL setMarioVelocity(Vec3f pos) {
+    gMarioState->vel[0] = pos[0];
+    gMarioState->vel[1] = pos[1];
+    gMarioState->vel[2] = pos[2];
+}
+
 EXPORT void ADDCALL getMarioRotation(Vec3f rot) {
     rot[0] = gMarioObject->header.gfx.angle[0] * (180.0f / 32768.0f);
     rot[1] = gMarioObject->header.gfx.angle[1] * (180.0f / 32768.0f);
     rot[2] = gMarioObject->header.gfx.angle[2] * (180.0f / 32768.0f);
+}
+
+EXPORT void ADDCALL setMarioRotation(Vec3f rot) {
+    gMarioState->faceAngle[0] = (s16)(rot[0] * (32768.0f / 180.0f));
+    gMarioState->faceAngle[1] = (s16)(rot[1] * (32768.0f / 180.0f));
+    gMarioState->faceAngle[2] = (s16)(rot[2] * (32768.0f / 180.0f));
+}
+
+void *vec3s_copy(Vec3s dest, Vec3s src);
+
+EXPORT void ADDCALL getMarioTorsoRotation(Vec3f out) {
+    struct MarioBodyState *bodyState = &gBodyStates[0];
+    s32 action = gMarioState->action;
+    if (action != ACT_BUTT_SLIDE &&
+        action != ACT_HOLD_BUTT_SLIDE &&
+        action != ACT_WALKING &&
+        action != ACT_RIDING_SHELL_GROUND) {
+        vec3s_copy(bodyState->torsoAngle, gVec3sZero);
+    }
+    out[0] = (180.0f / 32768.0f) * bodyState->torsoAngle[1];
+    out[1] = (180.0f / 32768.0f) * bodyState->torsoAngle[2];
+    out[2] = (180.0f / 32768.0f) * bodyState->torsoAngle[0];
 }
 
 EXPORT struct MarioState *ADDCALL getMarioState() {
