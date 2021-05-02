@@ -1,0 +1,3 @@
+[submodule "sm64"]
+	path = sm64
+	url = https://github.com/n64decomp/sm64.git
