@@ -411,32 +411,6 @@ void mario_handle_special_floors(struct MarioState *m) {
     }
 }
 
-s32 find_wall_collisions(struct WallCollisionData *colData) {
-    colData->numWalls = 0;
-    return 0;
-}
-
-struct Surface fakeFloor = {
-    .type = SURFACE_DEFAULT,
-    .force = 0,
-    .flags = 0,
-    .room = 0,
-    .lowerY = 0.0f,
-    .upperY = 0.0f,
-    .vertex1 = {100.0f, 0.0f, 100.0f},
-    .vertex2 = {100.0f, 0.0f, -100.0f},
-    .vertex3 = {-100.0f, 0.0f, 100.0f},
-    .normal = {0.0f, 1.0f, 0.0f},
-    .originOffset = 0.0f,
-    .object = NULL,
-};
-
-f32 find_floor(f32 xPos, f32 yPos, f32 zPos, struct Surface **pfloor) { 
-    f32 height = 0.0f;
-    *pfloor = &fakeFloor;
-    return height;
-}
-
 /**
  * Find the height of the highest floor below a point.
  */
@@ -473,20 +447,6 @@ s32 f32_find_wall_collision(f32 *xPtr, f32 *yPtr, f32 *zPtr, f32 offsetY, f32 ra
 f32 find_poison_gas_level(f32 x, f32 z) {
     f32 gasLevel = FLOOR_LOWER_LIMIT;
     return gasLevel;
-}
-
-f32 find_ceil(f32 posX, f32 posY, f32 posZ, struct Surface **pceil) {
-    f32 height = CELL_HEIGHT_LIMIT;
-    *pceil = NULL;
-    return height;
-}
-
-f32 find_water_level(f32 x, f32 z) {
-    return FLOOR_LOWER_LIMIT;
-}
-
-struct Object *mario_get_collided_object(struct MarioState *m, u32 interactType) {
-    return NULL;
 }
 
 u32 gGlobalTimer = 0;
@@ -613,7 +573,68 @@ struct Camera areaCamera;
 #define ADDCALL
 #endif
 
-EXPORT void ADDCALL init() {
+typedef f32 FindFloorHandler_t(f32 x, f32 y, f32 z, struct Surface *floor, s32 *foundFloor);
+typedef f32 FindCeilHandler_t(f32 x, f32 y, f32 z, struct Surface *ceil, s32 *foundCeil);
+typedef f32 FindWallHandler_t(f32 x, f32 y, f32 z, f32 offsetY, f32 radius, struct Surface walls[4], s32 *numFoundWalls);
+
+FindFloorHandler_t *gFloorHandler = NULL;
+FindCeilHandler_t *gCeilHandler = NULL;
+FindWallHandler_t *gWallHandler = NULL;
+
+struct Surface surfacePool[0x100];
+s32 surfacesUsed = 0;
+
+f32 find_floor(f32 xPos, f32 yPos, f32 zPos, struct Surface **pfloor) { 
+    f32 height = FLOOR_LOWER_LIMIT;
+    *pfloor = NULL;
+
+    if (gFloorHandler) {
+        struct Surface *curSurface = &surfacePool[surfacesUsed];
+        s32 foundFloor;
+        height = gFloorHandler(xPos, yPos, zPos, curSurface, &foundFloor);
+        if (foundFloor) {
+            *pfloor = curSurface;
+            surfacesUsed++;
+        }
+    }
+
+    return height;
+}
+
+f32 find_ceil(f32 xPos, f32 yPos, f32 zPos, struct Surface **pceil) {
+    f32 height = CELL_HEIGHT_LIMIT;
+    *pceil = NULL;
+
+    if (gCeilHandler) {
+        struct Surface *curSurface = &surfacePool[surfacesUsed];
+        s32 foundCeil;
+        height = gCeilHandler(xPos, yPos, zPos, curSurface, &foundCeil);
+        if (foundCeil) {
+            *pceil = curSurface;
+            surfacesUsed++;
+        }
+    }
+
+    return height;
+}
+
+s32 find_wall_collisions(struct WallCollisionData *colData) {
+    colData->numWalls = 0;
+    return 0;
+}
+
+f32 find_water_level(f32 x, f32 z) {
+    return FLOOR_LOWER_LIMIT;
+}
+
+struct Object *mario_get_collided_object(struct MarioState *m, u32 interactType) {
+    return NULL;
+}
+
+EXPORT void ADDCALL init(FindFloorHandler_t *floorHandler, FindCeilHandler_t *ceilHandler, FindWallHandler_t *wallHandler) {
+    gFloorHandler = floorHandler;
+    gCeilHandler = ceilHandler;
+    gWallHandler = wallHandler;
     memset(gMarioState, 0, sizeof(struct MarioState));
     gMarioState->pos[0] = 0.0f;
     gMarioState->pos[1] = 100.0f;
@@ -653,6 +674,8 @@ EXPORT void ADDCALL step(s32 buttons, f32 stickX, f32 stickY) {
     gControllers[0].stickX = stickX * 64.0f;
     gControllers[0].stickY = stickY * 64.0f;
     gControllers[0].stickMag = 64.0f * sqrtf(stickX * stickX + stickY * stickY);
+
+    surfacesUsed = 0;
 
     execute_mario_action(gCurrentObject);
     copy_mario_state_to_object();

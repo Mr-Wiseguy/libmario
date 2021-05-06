@@ -4,13 +4,60 @@ import time
 import threading
 import sys
 import fpstimer
+import os
 from ctypes import *
-libmario = CDLL("libmario.dll")
+
+pluginPath = os.path.dirname(os.path.realpath(__file__))
+
+library = 'libmario.so'
+if sys.platform == 'win32':
+    library = 'libmario.dll'
+if sys.platform == 'darwin':
+    library = 'libmario.dynlib'
+
+libmario = CDLL(os.path.join(pluginPath, library))
+
+    # /*0x00*/ s16 type;
+    # /*0x02*/ s16 force;
+    # /*0x04*/ s8 flags;
+    # /*0x05*/ s8 room;
+    # /*0x06*/ s16 lowerY;
+    # /*0x08*/ s16 upperY;
+    # /*0x0A*/ Vec3s vertex1;
+    # /*0x10*/ Vec3s vertex2;
+    # /*0x16*/ Vec3s vertex3;
+    # /*0x1C*/ struct {
+    #     f32 x;
+    #     f32 y;
+    #     f32 z;
+    # } normal;
+    # /*0x28*/ f32 originOffset;
+    # /*0x2C*/ struct Object *object;
 
 Vec3f = (c_float * 3)
+Vec3s = (c_int16 * 3)
+class Surface(Structure):
+    _fields_ = [
+        ('type', c_int16),
+        ('force', c_int16),
+        ('flags', c_int8),
+        ('room', c_int8),
+        ('lowerY', c_int16),
+        ('upperY', c_int16),
+        ('vertex1', Vec3s),
+        ('vertex2', Vec3s),
+        ('vertex3', Vec3s),
+        ('normal', Vec3f),
+        ('origin_offset', c_float),
+        ('object', c_void_p)
+    ]
+
+FindFloorHandlerType = CFUNCTYPE(c_float, c_float, c_float, c_float, POINTER(Surface), POINTER(c_int32))
+FindCeilHandlerType = CFUNCTYPE(c_float, c_float, c_float, c_float, POINTER(Surface), POINTER(c_int32))
+FindWallsHandlerType = CFUNCTYPE(c_float, c_float, c_float, c_float, c_float, POINTER(Surface), POINTER(c_int32))
 
 libmario.init.restype = None
-libmario.init.artypes = []
+libmario.init.artypes = [FindFloorHandlerType, FindCeilHandlerType, FindWallsHandlerType]
 
 libmario.step.restype = None
 libmario.step.artypes = [c_int32, c_float, c_float]
@@ -61,6 +108,31 @@ events = []
 _t = None
 _handler = None
 
+def find_floor(x, y, z, surface_out, found_out):
+    found_out[0] = 1
+    surface_out[0].vertex1[0] = -100
+    surface_out[0].vertex1[1] = 0
+    surface_out[0].vertex1[2] = -100
+
+    surface_out[0].vertex2[0] = 100
+    surface_out[0].vertex2[1] = 0
+    surface_out[0].vertex2[2] = -100
+
+    surface_out[0].vertex3[0] = 100
+    surface_out[0].vertex3[1] = 0
+    surface_out[0].vertex3[2] = 100
+
+    surface_out[0].normal[0] = 0.0
+    surface_out[0].normal[1] = 1.0
+    surface_out[0].normal[2] = 0.0
+
+    surface_out[0].origin_offset = 0.0
+
+    return 0.0
+
+# Needs to be global to avoid getting garbage collected during execution
+find_floor_handler = FindFloorHandlerType(find_floor)
+
 def worker():
     global events
     while True:
@@ -77,7 +149,7 @@ def main():
     stick_x = 0.0
     stick_y = 0.0
     buttons = 0
-    libmario.init()
+    libmario.init(find_floor_handler, None, None)
     timer = fpstimer.FPSTimer(30)
     try:
         while True:
