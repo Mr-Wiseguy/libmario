@@ -575,7 +575,7 @@ struct Camera areaCamera;
 
 typedef f32 FindFloorHandler_t(f32 x, f32 y, f32 z, struct Surface *floor, s32 *foundFloor);
 typedef f32 FindCeilHandler_t(f32 x, f32 y, f32 z, struct Surface *ceil, s32 *foundCeil);
-typedef f32 FindWallHandler_t(f32 x, f32 y, f32 z, f32 offsetY, f32 radius, struct Surface walls[4], s32 *numFoundWalls);
+typedef s32 FindWallHandler_t(f32 x, f32 y, f32 z, f32 offsetY, f32 radius, struct Surface walls[4], Vec3f posOut);
 
 FindFloorHandler_t *gFloorHandler = NULL;
 FindCeilHandler_t *gCeilHandler = NULL;
@@ -619,8 +619,24 @@ f32 find_ceil(f32 xPos, f32 yPos, f32 zPos, struct Surface **pceil) {
 }
 
 s32 find_wall_collisions(struct WallCollisionData *colData) {
-    colData->numWalls = 0;
-    return 0;
+    s32 numWalls = 0;
+
+    if (gWallHandler) {
+        struct Surface *curSurface = &surfacePool[surfacesUsed];
+        Vec3f posOut;
+        numWalls = gWallHandler(colData->x, colData->y, colData->z, colData->offsetY, colData->radius, curSurface, posOut);
+        colData->walls[0] = &curSurface[0];
+        colData->walls[1] = &curSurface[1];
+        colData->walls[2] = &curSurface[2];
+        colData->walls[3] = &curSurface[3];
+        colData->x = posOut[0];
+        colData->y = posOut[1];
+        colData->z = posOut[2];
+        surfacesUsed += (numWalls > 4 ? 4 : numWalls);
+    }
+
+    colData->numWalls = numWalls;
+    return numWalls;
 }
 
 f32 find_water_level(f32 x, f32 z) {
@@ -730,6 +746,12 @@ EXPORT void ADDCALL setMarioRotation(Vec3f rot) {
     gMarioState->faceAngle[0] = (s16)(rot[0] * (32768.0f / 180.0f));
     gMarioState->faceAngle[1] = (s16)(rot[1] * (32768.0f / 180.0f));
     gMarioState->faceAngle[2] = (s16)(rot[2] * (32768.0f / 180.0f));
+}
+
+EXPORT void ADDCALL getMarioScale(Vec3f scale) {
+    scale[0] = gMarioObject->header.gfx.scale[0];
+    scale[1] = gMarioObject->header.gfx.scale[1];
+    scale[2] = gMarioObject->header.gfx.scale[2];
 }
 
 void *vec3s_copy(Vec3s dest, Vec3s src);
