@@ -782,6 +782,10 @@ EXPORT s32 ADDCALL getMarioAnimFrame() {
     return gMarioObject->header.gfx.animInfo.animFrame;
 }
 
+EXPORT void ADDCALL setMarioHealth(s32 health) {
+    gMarioState->health = health;
+}
+
 struct AnimData {
     Vec3f rootTranslation;
     Vec3f boneRotations[20];
