@@ -2,3 +2,4 @@ libmario.dll
 libmario.so
 *.pyc
 __pycache__
+.vscode/

@@ -94,7 +94,6 @@ void mario_grab_used_object(struct MarioState *m) {}
 void mario_drop_held_object(struct MarioState *m) {}
 u32 mario_check_object_grab(struct MarioState *m) { return FALSE; }
 void mario_throw_held_object(struct MarioState *m) {}
-void mario_process_interactions() {}
 void mario_stop_riding_object(struct MarioState *m) {}
 void mario_stop_riding_and_holding(struct MarioState *m) {}
 void mario_blow_off_cap(struct MarioState *m, f32 capSpeed) {}
@@ -652,6 +651,41 @@ f32 find_water_level(f32 x, f32 z) {
 
 struct Object *mario_get_collided_object(struct MarioState *m, u32 interactType) {
     return NULL;
+}
+
+#include "math_util.h"
+
+struct Surface *resolve_and_return_wall_collisions(Vec3f pos, f32 offset, f32 radius);
+void mario_set_forward_vel(struct MarioState *m, f32 speed);
+
+void check_kick_or_punch_wall(struct MarioState *m) {
+    if (m->flags & (MARIO_PUNCHING | MARIO_KICKING | MARIO_TRIPPING)) {
+        Vec3f detector;
+        detector[0] = m->pos[0] + 50.0f * sins(m->faceAngle[1]);
+        detector[2] = m->pos[2] + 50.0f * coss(m->faceAngle[1]);
+        detector[1] = m->pos[1];
+
+        if (resolve_and_return_wall_collisions(detector, 80.0f, 5.0f) != NULL) {
+            if (m->action != ACT_MOVE_PUNCHING || m->forwardVel >= 0.0f) {
+                if (m->action == ACT_PUNCHING) {
+                    m->action = ACT_MOVE_PUNCHING;
+                }
+
+                mario_set_forward_vel(m, -48.0f);
+                play_sound(SOUND_ACTION_HIT_2, m->marioObj->header.gfx.cameraToObject);
+                m->particleFlags |= PARTICLE_TRIANGLE;
+            } else if (m->action & ACT_FLAG_AIR) {
+                mario_set_forward_vel(m, -16.0f);
+                play_sound(SOUND_ACTION_HIT_2, m->marioObj->header.gfx.cameraToObject);
+                m->particleFlags |= PARTICLE_TRIANGLE;
+            }
+        }
+    }
+}
+
+void mario_process_interactions(struct MarioState *m) {
+    check_kick_or_punch_wall(m);
+    m->flags &= ~MARIO_PUNCHING & ~MARIO_KICKING & ~MARIO_TRIPPING;
 }
 
 EXPORT void ADDCALL init(FindFloorHandler_t *floorHandler, FindCeilHandler_t *ceilHandler, FindWallHandler_t *wallHandler, FindWaterLevelHandler_t *waterHandler) {
