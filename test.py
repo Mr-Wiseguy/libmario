@@ -54,10 +54,11 @@ class Surface(Structure):
 
 FindFloorHandlerType = CFUNCTYPE(c_float, c_float, c_float, c_float, POINTER(Surface), POINTER(c_int32))
 FindCeilHandlerType = CFUNCTYPE(c_float, c_float, c_float, c_float, POINTER(Surface), POINTER(c_int32))
-FindWallsHandlerType = CFUNCTYPE(c_float, c_float, c_float, c_float, c_float, POINTER(Surface), POINTER(c_int32))
+FindWallsHandlerType = CFUNCTYPE(c_int32, c_float, c_float, c_float, c_float, c_float, POINTER(Surface), POINTER(c_float))
+FindWaterLevelHandlerType = CFUNCTYPE(c_float, c_float, c_float)
 
 libmario.init.restype = None
-libmario.init.artypes = [FindFloorHandlerType, FindCeilHandlerType, FindWallsHandlerType]
+libmario.init.artypes = [FindFloorHandlerType, FindCeilHandlerType, FindWallsHandlerType, FindWaterLevelHandlerType]
 
 libmario.step.restype = None
 libmario.step.artypes = [c_int32, c_float, c_float]
@@ -128,15 +129,20 @@ def find_floor(x, y, z, surface_out, found_out):
 
     surface_out[0].origin_offset = 0.0
 
-    return 0.0
+    return -1000.0
+
+def find_water_level(x, z):
+    return -100.0
 
 # Needs to be global to avoid getting garbage collected during execution
 find_floor_handler = FindFloorHandlerType(find_floor)
+find_water_level_handler = FindWaterLevelHandlerType(find_water_level)
 
 def worker():
     global events
     while True:
         events.append(inputs.get_gamepad())
+        
 
 def main():
     global _t
@@ -149,7 +155,7 @@ def main():
     stick_x = 0.0
     stick_y = 0.0
     buttons = 0
-    libmario.init(find_floor_handler, None, None)
+    libmario.init(find_floor_handler, None, None, find_water_level_handler)
     timer = fpstimer.FPSTimer(30)
     try:
         while True:

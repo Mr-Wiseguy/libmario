@@ -1,3 +1,4 @@
 libmario.dll
+libmario.so
 *.pyc
 __pycache__

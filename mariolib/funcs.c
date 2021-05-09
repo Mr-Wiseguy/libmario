@@ -125,7 +125,8 @@ struct SpawnInfo gPlayerSpawnInfos[1];
 struct SpawnInfo *gMarioSpawnInfo = &gPlayerSpawnInfos[0];
 struct GraphNode **gLoadedGraphNodes = NULL;
 struct Area *gAreas = gAreaData;
-struct Area *gCurrentArea = NULL;
+struct Area gCurrentAreaInstance;
+struct Area *gCurrentArea = &gCurrentAreaInstance;
 struct Object *gCurrentObject = &MarioObjectInstance;
 struct Object *gCutsceneFocus = NULL;
 struct Object *gSecondCameraFocus = NULL;
@@ -576,10 +577,12 @@ struct Camera areaCamera;
 typedef f32 FindFloorHandler_t(f32 x, f32 y, f32 z, struct Surface *floor, s32 *foundFloor);
 typedef f32 FindCeilHandler_t(f32 x, f32 y, f32 z, struct Surface *ceil, s32 *foundCeil);
 typedef s32 FindWallHandler_t(f32 x, f32 y, f32 z, f32 offsetY, f32 radius, struct Surface walls[4], Vec3f posOut);
+typedef f32 FindWaterLevelHandler_t(f32 x, f32 z);
 
 FindFloorHandler_t *gFloorHandler = NULL;
 FindCeilHandler_t *gCeilHandler = NULL;
 FindWallHandler_t *gWallHandler = NULL;
+FindWaterLevelHandler_t *gWaterLevelHandler = NULL;
 
 struct Surface surfacePool[0x100];
 s32 surfacesUsed = 0;
@@ -640,17 +643,22 @@ s32 find_wall_collisions(struct WallCollisionData *colData) {
 }
 
 f32 find_water_level(f32 x, f32 z) {
-    return FLOOR_LOWER_LIMIT;
+    f32 waterHeight = FLOOR_LOWER_LIMIT;
+    if (gWaterLevelHandler) {
+        waterHeight = gWaterLevelHandler(x, z);
+    }
+    return waterHeight;
 }
 
 struct Object *mario_get_collided_object(struct MarioState *m, u32 interactType) {
     return NULL;
 }
 
-EXPORT void ADDCALL init(FindFloorHandler_t *floorHandler, FindCeilHandler_t *ceilHandler, FindWallHandler_t *wallHandler) {
+EXPORT void ADDCALL init(FindFloorHandler_t *floorHandler, FindCeilHandler_t *ceilHandler, FindWallHandler_t *wallHandler, FindWaterLevelHandler_t *waterHandler) {
     gFloorHandler = floorHandler;
     gCeilHandler = ceilHandler;
     gWallHandler = wallHandler;
+    gWaterLevelHandler = waterHandler;
     memset(gMarioState, 0, sizeof(struct MarioState));
     gMarioState->pos[0] = 0.0f;
     gMarioState->pos[1] = 100.0f;
