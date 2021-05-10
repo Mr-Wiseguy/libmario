@@ -828,6 +828,10 @@ EXPORT void ADDCALL setMarioHealth(s32 health) {
     gMarioState->health = health;
 }
 
+EXPORT void ADDCALL setCameraYaw(f32 angle) {
+    gMarioState->area->camera->yaw = angle * (32768.0f / 180.0f);
+}
+
 struct AnimData {
     Vec3f rootTranslation;
     Vec3f boneRotations[20];
